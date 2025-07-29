@@ -5,47 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>סורק קריפטו ומניות - המלצות השקעה</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
+    <div class="background-animation"></div>
     <div class="container">
         <div class="header">
-            <h1>🚀 סורק קריפטו ומניות</h1>
-            <p>ניתוח מתקדם והמלצות השקעה בזמן אמת</p>
+            <div class="header-content">
+                <h1>🚀 סורק קריפטו ומניות</h1>
+                <p class="subtitle">ניתוח מתקדם והמלצות השקעה בזמן אמת</p>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalAssets">150+</div>
+                        <div class="stat-label">נכסים</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">מעקב</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">AI</div>
+                        <div class="stat-label">ניתוח</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="controls">
-            <div class="control-group">
-                <label>סוג נכס:</label>
-                <select id="assetType">
-                    <option value="crypto">קריפטו</option>
-                    <option value="stocks">מניות</option>
-                    <option value="both">שניהם</option>
-                </select>
+        <div class="controls-section">
+            <div class="controls-container">
+                <div class="control-group">
+                    <label>🎯 סוג נכס</label>
+                    <select id="assetType" class="modern-select">
+                        <option value="crypto">💰 קריפטו</option>
+                        <option value="stocks">📈 מניות</option>
+                        <option value="both">🔥 הכל</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>⏰ טווח זמן</label>
+                    <select id="timeframe" class="modern-select">
+                        <option value="1h">1 שעה</option>
+                        <option value="4h">4 שעות</option>
+                        <option value="1d" selected>יום</option>
+                        <option value="1w">שבוע</option>
+                        <option value="1m">חודש</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>🔍 חיפוש ספציפי</label>
+                    <input type="text" id="specificSymbol" class="modern-input" placeholder="BTC, AAPL, ETH...">
+                </div>
+                
+                <button class="scan-button" onclick="startScan()">
+                    <span class="button-icon">🔍</span>
+                    <span class="button-text">התחל סריקה</span>
+                    <div class="button-shine"></div>
+                </button>
             </div>
-            
-            <div class="control-group">
-                <label>טווח זמן:</label>
-                <select id="timeframe">
-                    <option value="1h">שעה</option>
-                    <option value="4h">4 שעות</option>
-                    <option value="1d" selected>יום</option>
-                    <option value="1w">שבוע</option>
-                </select>
+        </div>
+
+        <div class="market-overview" id="marketOverview" style="display: none;">
+            <h2>📊 סקירת שוק</h2>
+            <div class="overview-stats">
+                <div class="overview-card buy-signals">
+                    <div class="overview-icon">🚀</div>
+                    <div class="overview-content">
+                        <div class="overview-number" id="buySignals">0</div>
+                        <div class="overview-label">אותות קנייה</div>
+                    </div>
+                </div>
+                <div class="overview-card sell-signals">
+                    <div class="overview-icon">⬇️</div>
+                    <div class="overview-content">
+                        <div class="overview-number" id="sellSignals">0</div>
+                        <div class="overview-label">אותות מכירה</div>
+                    </div>
+                </div>
+                <div class="overview-card hold-signals">
+                    <div class="overview-icon">⏸️</div>
+                    <div class="overview-content">
+                        <div class="overview-number" id="holdSignals">0</div>
+                        <div class="overview-label">המתנה</div>
+                    </div>
+                </div>
+                <div class="overview-card avg-score">
+                    <div class="overview-icon">⭐</div>
+                    <div class="overview-content">
+                        <div class="overview-number" id="avgScore">0</div>
+                        <div class="overview-label">ממוצע ציונים</div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="control-group">
-                <label>סמל נכס (אופציונלי):</label>
-                <input type="text" id="specificSymbol" placeholder="BTC, AAPL, etc.">
-            </div>
-            
-            <button class="scan-button" onclick="startScan()">🔍 התחל סריקה</button>
         </div>
 
         <div id="results"></div>
         
         <div id="newsSection" class="news-section" style="display: none;">
-            <h2>📰 חדשות רלוונטיות</h2>
-            <div id="newsList"></div>
+            <h2>📰 חדשות ועדכונים</h2>
+            <div id="newsList" class="news-grid"></div>
         </div>
     </div>
 
