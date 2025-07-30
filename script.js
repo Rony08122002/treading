@@ -701,60 +701,441 @@ function showCryptoNews() {
     newsSection.style.display = 'block';
 }
 
-// Continue with the rest of the functions (same as before but optimized for crypto)
-function calculateGaugeScore(crypto) {
-    let score = 50;
-    
-    // RSI (30 points)
-    if (crypto.rsi < 25) score += 20;
-    else if (crypto.rsi < 35) score += 10;
-    else if (crypto.rsi > 75) score -= 20;
-    else if (crypto.rsi > 65) score -= 10;
-    else if (crypto.rsi >= 40 && crypto.rsi <= 60) score += 5;
-    
-    // MACD (25 points)
-    if (crypto.macd === 'bullish') score += 15;
-    else if (crypto.macd === 'bearish') score -= 15;
-    
-    // Price changes (25 points)
-    if (crypto.change24h > 10) score += 15;
-    else if (crypto.change24h > 5) score += 10;
-    else if (crypto.change24h > 0) score += 5;
-    else if (crypto.change24h < -10) score -= 15;
-    else if (crypto.change24h < -5) score -= 10;
-    else if (crypto.change24h < 0) score -= 5;
-    
-    // Volume factor (10 points)
-    if (crypto.volumeRank === 'very-high') score += 8;
-    else if (crypto.volumeRank === 'high') score += 5;
-    else if (crypto.volumeRank === 'low') score -= 5;
-    
-    // ATH distance (10 points)
-    if (crypto.athChangePercentage > -10) score += 5;
-    else if (crypto.athChangePercentage < -70) score += 8; // Potential recovery
-    
-    return Math.max(0, Math.min(100, Math.round(score)));
+// Utility functions (keeping from previous version)
+function showLoading() {
+    document.getElementById('results').innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>🔍 סורק את שוק הקריפטו ומקבל נתונים אמיתיים...</p>
+            <p style="margin-top: 10px; opacity: 0.7;">
+                ${isRealDataMode ? 'מקבל נתונים אמיתיים מ-CoinGecko' : 'מצב דמו פעיל'}
+            </p>
+        </div>
+    `;
+    document.getElementById('marketOverview').style.display = 'none';
 }
 
-// Initialize everything
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 מפעיל CryptoScan Pro...');
-    
-    addControlButtons();
-    addEnhancedStyles();
-    
-    setTimeout(() => {
-        startCryptoScan();
-    }, 1000);
-    
-    setTimeout(() => {
-        testAPIConnectivity();
-    }, 2000);
-    
-    setTimeout(() => {
-        startEnhancedAutoRefresh();
-    }, 5000);
-});
+function getTrendIcon(trend) {
+    switch(trend) {
+        case 'strong-up': return '🚀';
+        case 'up': return '📈';
+        case 'strong-down': return '⬇️';
+        case 'down': return '📉';
+        case 'sideways': return '➡️';
+        default: return '➡️';
+    }
+}
 
-// Keep all the utility functions from before (showStatusMessage, createChart, etc.)
-// ... (rest of the functions remain the same)
+function getTrendClass(trend) {
+    switch(trend) {
+        case 'strong-up': return 'trending-up hot';
+        case 'up': return 'trending-up';
+        case 'strong-down': return 'trending-down';
+        case 'down': return 'trending-down';
+        case 'sideways': return 'trend-sideways';
+        default: return 'trend-sideways';
+    }
+}
+
+function getRSISignal(rsi) {
+    if (rsi > 75) return '🔥';
+    if (rsi < 25) return '💎';
+    if (rsi >= 50) return '📈';
+    return '📉';
+}
+
+function getGaugeDescription(score) {
+    if (score >= 85) return 'קנייה חזקה מאוד';
+    if (score >= 75) return 'קנייה חזקה';
+    if (score >= 65) return 'קנייה';
+    if (score >= 55) return 'קנייה זהירה';
+    if (score >= 45) return 'החזקה';
+    if (score >= 35) return 'המתנה';
+    if (score >= 25) return 'מכירה זהירה';
+    if (score >= 15) return 'מכירה חזקה';
+    return 'מכירה חזקה מאוד';
+}
+
+function getConfidenceLevel(score) {
+    if (score >= 80 || score <= 20) return '(ביטחון גבוה מאוד)';
+    if (score >= 70 || score <= 30) return '(ביטחון גבוה)';
+    if (score >= 60 || score <= 40) return '(ביטחון בינוני)';
+    return '(ביטחון נמוך)';
+}
+
+function getRecommendationText(rec) {
+    switch(rec) {
+        case 'buy': return 'קנייה מומלצת';
+        case 'sell': return 'מכירה מומלצת';
+        case 'hold': return 'החזקה והמתנה';
+        default: return 'נייטרלי';
+    }
+}
+
+function getRecommendationIcon(rec) {
+    switch(rec) {
+        case 'buy': return '🚀';
+        case 'sell': return '⬇️';
+        case 'hold': return '⏸️';
+        default: return '⚖️';
+    }
+}
+
+function getGaugeColorClass(score) {
+    if (score >= 70) return 'buy-zone';
+    else if (score >= 40) return 'hold-zone';
+    else return 'sell-zone';
+}
+
+// Chart creation for crypto
+function createDynamicChart(canvasId, crypto) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    
+    let priceData = priceHistoryData[crypto.symbol] || [];
+    
+    if (priceData.length === 0) {
+        if (crypto.sparkline && crypto.sparkline.length > 0) {
+            priceData = crypto.sparkline.map((price, index) => ({
+                time: new Date(Date.now() - (crypto.sparkline.length - index) * 3600000),
+                price: price
+            }));
+        } else {
+            priceData = generateRealisticPriceHistory(crypto.price, 24);
+        }
+        priceHistoryData[crypto.symbol] = priceData;
+    }
+    
+    const isPositive = crypto.change24h >= 0;
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
+    
+    if (isPositive) {
+        gradient.addColorStop(0, 'rgba(0, 255, 0, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 255, 0, 0.05)');
+    } else {
+        gradient.addColorStop(0, 'rgba(255, 20, 147, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 20, 147, 0.05)');
+    }
+    
+    if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+    }
+    
+    chartInstances[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: priceData.map((_, i) => {
+                const hoursAgo = priceData.length - i;
+                return `${hoursAgo}h`;
+            }),
+            datasets: [{
+                data: priceData.map(p => p.price),
+                borderColor: isPositive ? '#00FF00' : '#FF1493',
+                backgroundColor: gradient,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 8,
+                pointHoverBackgroundColor: isPositive ? '#00FF00' : '#FF1493',
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 1500,
+                easing: 'easeInOutQuart'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    titleColor: '#FFD700',
+                    bodyColor: '#fff',
+                    borderColor: isPositive ? '#00FF00' : '#FF1493',
+                    borderWidth: 2,
+                    cornerRadius: 12,
+                    displayColors: false,
+                    callbacks: {
+                        title: () => `${crypto.symbol} - ${crypto.name}`,
+                        label: (context) => `מחיר: ${context.parsed.y.toLocaleString()}`,
+                        afterLabel: () => `שינוי 24h: ${crypto.change24h > 0 ? '+' : ''}${crypto.change24h}%`
+                    }
+                }
+            },
+            scales: {
+                x: { display: false, grid: { display: false } },
+                y: { display: false, grid: { display: false } }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+
+function generateRealisticPriceHistory(currentPrice, points) {
+    const history = [];
+    let price = currentPrice * 0.92;
+    
+    for (let i = 0; i < points; i++) {
+        const volatility = 0.03 + Math.random() * 0.02; // 3-5% volatility for crypto
+        const change = (Math.random() - 0.5) * volatility;
+        price = price * (1 + change);
+        
+        history.push({
+            time: new Date(Date.now() - (points - i) * 3600000),
+            price: parseFloat(price.toFixed(8))
+        });
+    }
+    
+    history[history.length - 1].price = currentPrice;
+    return history;
+}
+
+// Action functions
+function addToWatchlist(symbol) {
+    const watchlist = JSON.parse(localStorage.getItem('cryptoWatchlist') || '[]');
+    if (!watchlist.includes(symbol)) {
+        watchlist.push(symbol);
+        localStorage.setItem('cryptoWatchlist', JSON.stringify(watchlist));
+        showStatusMessage(`✅ ${symbol} נוסף למעקב הקריפטו`, 'success');
+    } else {
+        showStatusMessage(`ℹ️ ${symbol} כבר במעקב`, 'info');
+    }
+}
+
+function setAlert(symbol, currentPrice) {
+    const alertPrice = prompt(`🔔 הגדר התראת מחיר עבור ${symbol}\n💰 מחיר נוכחי: ${currentPrice.toLocaleString()}\n\n🎯 הכנס מחיר יעד להתראה:`);
+    
+    if (alertPrice && !isNaN(alertPrice)) {
+        const alerts = JSON.parse(localStorage.getItem('cryptoAlerts') || '{}');
+        alerts[symbol] = {
+            targetPrice: parseFloat(alertPrice),
+            currentPrice: currentPrice,
+            setTime: new Date().toISOString()
+        };
+        localStorage.setItem('cryptoAlerts', JSON.stringify(alerts));
+        showStatusMessage(`🔔 התראה הוגדרה עבור ${symbol} במחיר ${parseFloat(alertPrice).toLocaleString()}`, 'success');
+    }
+}
+
+// Status message system
+function showStatusMessage(message, type = 'info') {
+    const statusDiv = document.getElementById('statusMessage') || createStatusMessage();
+    statusDiv.textContent = message;
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 4000);
+}
+
+function createStatusMessage() {
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'statusMessage';
+    statusDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        z-index: 10000;
+        font-size: 14px;
+        max-width: 350px;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    `;
+    document.body.appendChild(statusDiv);
+    return statusDiv;
+}
+
+function updateLastUpdateTime() {
+    const timeElement = document.getElementById('lastUpdateTime') || createUpdateTimeElement();
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('he-IL');
+    const modeText = isRealDataMode ? 'נתונים אמיתיים' : 'מצב דמו';
+    timeElement.innerHTML = `
+        <span class="update-time">🕐 עדכון אחרון: ${timeString}</span>
+        <span class="data-mode ${isRealDataMode ? 'real' : 'demo'}">${modeText}</span>
+    `;
+}
+
+function createUpdateTimeElement() {
+    const element = document.createElement('div');
+    element.id = 'lastUpdateTime';
+    element.style.cssText = `
+        text-align: center;
+        margin: 20px 0;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        backdrop-filter: blur(5px);
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(element, document.getElementById('results'));
+    return element;
+}
+
+// Auto-refresh system
+let autoRefreshInterval;
+
+function startEnhancedAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    autoRefreshInterval = setInterval(async () => {
+        if (currentCryptos.length > 0) {
+            console.log('🔄 רענון אוטומטי של קריפטו...');
+            await startCryptoScan();
+        }
+    }, CONFIG.UPDATE_INTERVAL);
+    
+    showStatusMessage(`🔄 רענון אוטומטי הופעל - כל ${CONFIG.UPDATE_INTERVAL/1000} שניות`, 'success');
+}
+
+function addControlButtons() {
+    const controlsContainer = document.querySelector('.controls-container');
+    
+    const refreshButton = document.createElement('button');
+    refreshButton.className = 'scan-button';
+    refreshButton.style.background = 'linear-gradient(45deg, #00FF00, #32CD32)';
+    refreshButton.innerHTML = `
+        <span class="button-icon">🔄</span>
+        <span class="button-text">רענון עכשיו</span>
+    `;
+    refreshButton.onclick = startCryptoScan;
+    
+    const autoRefreshButton = document.createElement('button');
+    autoRefreshButton.className = 'scan-button';
+    autoRefreshButton.id = 'autoRefreshBtn';
+    autoRefreshButton.style.background = 'linear-gradient(45deg, #FFD700, #FFA500)';
+    autoRefreshButton.innerHTML = `
+        <span class="button-icon">⚡</span>
+        <span class="button-text">רענון אוטומטי</span>
+    `;
+    autoRefreshButton.onclick = toggleAutoRefresh;
+    
+    controlsContainer.appendChild(refreshButton);
+    controlsContainer.appendChild(autoRefreshButton);
+}
+
+function toggleAutoRefresh() {
+    const button = document.getElementById('autoRefreshBtn');
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        button.innerHTML = `
+            <span class="button-icon">⚡</span>
+            <span class="button-text">הפעל רענון אוטומטי</span>
+        `;
+        button.style.background = 'linear-gradient(45deg, #FFD700, #FFA500)';
+        showStatusMessage('⏸️ רענון אוטומטי הופסק', 'info');
+    } else {
+        startEnhancedAutoRefresh();
+        button.innerHTML = `
+            <span class="button-icon">⏸️</span>
+            <span class="button-text">עצור רענון אוטומטי</span>
+        `;
+        button.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+    }
+}
+
+function addEnhancedStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .status-message.success { border-left: 4px solid #00FF00; }
+        .status-message.warning { border-left: 4px solid #FFD700; }
+        .status-message.error { border-left: 4px solid #FF1493; }
+        .status-message.info { border-left: 4px solid #00FFFF; }
+        
+        .data-mode.real { 
+            background: linear-gradient(45deg, #00FF00, #32CD32); 
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .data-mode.demo { 
+            background: linear-gradient(45deg, #FFD700, #FFA500); 
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+async function testAPIConnectivity() {
+    try {
+        const response = await fetch(`${CONFIG.COINGECKO_API}/ping`);
+        if (response.ok) {
+            showStatusMessage('🌐 CoinGecko API פרעיל - נתונים אמיתיים זמינים!', 'success');
+        }
+    } catch (error) {
+        showStatusMessage('⚠️ בעיית חיבור לAPI - עובד במצב דמו', 'warning');
+    }
+}
+
+// Generate demo data for offline mode
+function generateDynamicDemoData() {
+    const demoCoins = [
+        { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', basePrice: 43000 },
+        { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', basePrice: 2800 },
+        { id: 'solana', symbol: 'SOL', name: 'Solana', basePrice: 95 },
+        { id: 'binancecoin', symbol: 'BNB', name: 'Binance Coin', basePrice: 310 },
+        { id: 'cardano', symbol: 'ADA', name: 'Cardano', basePrice: 0.45 }
+    ];
+    
+    return demoCoins.map(coin => {
+        const priceVariation = (Math.random() - 0.5) * 0.04; // ±2%
+        const newPrice = coin.basePrice * (1 + priceVariation);
+        const change24h = (Math.random() - 0.5) * 10; // ±5%
+        const change1h = (Math.random() - 0.5) * 2; // ±1%
+        const change7d = (Math.random() - 0.5) * 20; // ±10%
+        
+        updatePriceHistory(coin.symbol, newPrice);
+        
+        const rsi = calculateRealRSI(coin.symbol, newPrice, change24h, change7d);
+        const macd = calculateRealMACD(coin.symbol, change1h, change24h, change7d);
+        const recommendation = generateRealRecommendation(rsi, macd, change24h, change1h);
+        
+        return {
+            symbol: coin.symbol,
+            name: coin.name,
+            price: parseFloat(newPrice.toFixed(8)),
+            change24h: parseFloat(change24h.toFixed(2)),
+            change1h: parseFloat(change1h.toFixed(2)),
+            change7d: parseFloat(change7d.toFixed(2)),
+            volume: Math.random() * 1000000000,
+            marketCap: newPrice * 19000000,
+            marketCapRank: demoCoins.indexOf(coin) + 1,
+            rsi,
+            macd,
+            recommendation,
+            support: newPrice * 0.92,
+            resistance: newPrice * 1.08,
+            trend: determineTrend(change1h, change24h, change7d),
+            category: getCryptoCategory(coin.id),
+            volumeRank: 'high',
+            athChangePercentage: -Math.random() * 40,
+            lastUpdated: new Date()
+        };
+    });
+}
